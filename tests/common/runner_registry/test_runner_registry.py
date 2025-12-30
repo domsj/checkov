@@ -22,8 +22,7 @@ from checkov.common.util.banner import banner
 from checkov.kubernetes.runner import Runner as k8_runner
 from checkov.main import DEFAULT_RUNNERS
 from checkov.runner_filter import RunnerFilter
-from checkov.sca_package_2.runner import Runner as sca_package_runner_2
-from checkov.sca_package.runner import Runner as sca_package_runner
+# SCA frameworks removed
 from checkov.terraform.runner import Runner as tf_runner
 from checkov.bicep.runner import Runner as bicep_runner
 import re
@@ -250,28 +249,9 @@ class TestRunnerRegistry(unittest.TestCase):
             banner, runner_filter, *DEFAULT_RUNNERS
         )
         runner_registry.filter_runners_for_files(['main.tf'])
-        self.assertEqual(set(r.check_type for r in runner_registry.runners), {'terraform', 'secrets'})
-
-        runner_registry = RunnerRegistry(
-            banner, runner_filter, *DEFAULT_RUNNERS, sca_package_runner()
-        )
-        runner_registry.filter_runners_for_files(['main.tf', 'requirements.txt'])
-        self.assertEqual(set(r.check_type for r in runner_registry.runners), {'terraform', 'secrets', 'sca_package'})
-
-        runner_registry = RunnerRegistry(
-            banner, runner_filter, *DEFAULT_RUNNERS, sca_package_runner_2()
-        )
-        runner_registry.filter_runners_for_files(['main.tf', 'requirements.txt'])
-        self.assertEqual(set(r.check_type for r in runner_registry.runners), {'terraform', 'secrets', 'sca_package'})
-
-        runner_filter = RunnerFilter(framework=['terraform'], runners=checkov_runners)
-        runner_registry = RunnerRegistry(
-            banner, runner_filter, *DEFAULT_RUNNERS
-        )
-        runner_registry.filter_runners_for_files(['main.tf'])
         self.assertEqual(set(r.check_type for r in runner_registry.runners), {'terraform'})
 
-        runner_filter = RunnerFilter(framework=['all'], skip_framework=['secrets'], runners=checkov_runners)
+        runner_filter = RunnerFilter(framework=['terraform'], runners=checkov_runners)
         runner_registry = RunnerRegistry(
             banner, runner_filter, *DEFAULT_RUNNERS
         )
@@ -283,7 +263,8 @@ class TestRunnerRegistry(unittest.TestCase):
             banner, runner_filter, *DEFAULT_RUNNERS
         )
         runner_registry.filter_runners_for_files(['main.tf'])
-        self.assertEqual(set(r.check_type for r in runner_registry.runners), {'secrets'})
+        # No secrets runner anymore, so should be empty or other frameworks
+        self.assertNotIn('secrets', set(r.check_type for r in runner_registry.runners))
 
         runner_filter = RunnerFilter(framework=['all'], runners=checkov_runners)
         runner_registry = RunnerRegistry(
@@ -332,10 +313,8 @@ class TestRunnerRegistry(unittest.TestCase):
         reports = [
             [
                 Report(check_type=CheckType.TERRAFORM),
-                Report(check_type=CheckType.SCA_IMAGE),
             ],
             Report(check_type=CheckType.CLOUDFORMATION),
-            Report(check_type=CheckType.SCA_IMAGE),
         ]
 
         # when
@@ -349,106 +328,12 @@ class TestRunnerRegistry(unittest.TestCase):
         self.assertCountEqual(merged_report_check_types,[
             CheckType.TERRAFORM,
             CheckType.CLOUDFORMATION,
-            CheckType.SCA_IMAGE,
         ])
 
+    # SCA_IMAGE framework removed - test no longer applicable
     def test_merge_reports_for_multi_frameworks_image_referencer_results(self):
-        # given
-        runner_registry = RunnerRegistry(banner, RunnerFilter(), *DEFAULT_RUNNERS)
-        tf_image_referencer_report = Report(check_type=CheckType.SCA_IMAGE)
-        tf_image_referencer_report.image_cached_results = [
-        {
-            "dockerImageName": "busybox",
-            "dockerFilePath": "/Users/arielk/dev/terragoat/terraform/aws/image-referencer.tf",
-            "dockerFileContent": "image: busybox",
-            "type": "Image",
-            "sourceId": "ariel-cli/terragoat",
-            "branch": "branch-name",
-            "sourceType": "cli",
-            "vulnerabilities":
-            [
-                {
-                    "cveId": "CVE-2022-28391",
-                    "status": "open",
-                    "severity": "high",
-                    "packageName": "busybox",
-                    "packageVersion": "1.34.1",
-                    "link": "https://nvd.nist.gov/vuln/detail/CVE-2022-28391",
-                    "cvss": 8.8,
-                    "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
-                    "description": "BusyBox through 1.35.0 allows remote attackers to execute arbitrary code if netstat is used to print a DNS PTR record\\'s value to a VT compatible terminal. Alternatively, the attacker could choose to change the terminal\\'s colors.",
-                    "riskFactors":
-                    [
-                        "Attack complexity: low",
-                        "Attack vector: network",
-                        "High severity",
-                        "Recent vulnerability",
-                        "Remote execution"
-                    ],
-                    "publishedDate": "2022-04-03T21:15:00Z"
-                }
-            ],
-            "packages":
-            [],
-            "relatedResourceId": "/Users/arielk/dev/terragoat/terraform/aws/image-referencer.tf:aws_batch_job_definition.test1111"
-        }
-        ]
-        gha_image_referencer_report = Report(check_type=CheckType.SCA_IMAGE)
-        gha_image_referencer_report.image_cached_results = [
-        {
-            "dockerImageName": "nginx:stable-alpine-perl",
-            "dockerFilePath": "/.github/workflows/ci.yaml",
-            "dockerFileContent": "image: nginx:stable-alpine-perl",
-            "type": "Image",
-            "sourceId": "arielkru/ak19-pr-sce-test",
-            "branch": None,
-            "sourceType": "Github",
-            "vulnerabilities":
-            [
-                {
-                    "cveId": "CVE-2020-35538",
-                    "status": "open",
-                    "severity": "medium",
-                    "packageName": "libjpeg-turbo",
-                    "packageVersion": "2.1.3-r1",
-                    "link": "https://nvd.nist.gov/vuln/detail/CVE-2020-35538",
-                    "cvss": 5.5,
-                    "vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
-                    "description": "A crafted input file could cause a null pointer dereference in jcopy_sample_rows() when processed by libjpeg-turbo.",
-                    "riskFactors":
-                    [
-                        "Attack complexity: low",
-                        "Medium severity"
-                    ],
-                    "publishedDate": "2022-08-31T16:15:00Z"
-                }
-            ],
-            "packages":
-            [
-                {
-                    "type": "os",
-                    "name": "tzdata",
-                    "version": "2022a-r0",
-                    "licenses":
-                    [
-                        "Public-Domain"
-                    ]
-                }
-            ],
-            "relatedResourceId": "jobs.container-test-job",
-        }
-        ]
-
-        reports = [
-            tf_image_referencer_report,
-            gha_image_referencer_report
-        ]
-
-        # when
-        merged_reports = runner_registry._merge_reports(reports=reports)
-
-        # then
-        assert len(merged_reports[0].image_cached_results) == 2
+        # SCA frameworks removed - this test is skipped
+        pass
 
 
 def test_non_compact_json_output(capsys):

@@ -45,7 +45,6 @@ from checkov.common.util.http_utils import normalize_prisma_url, get_auth_header
     get_user_agent_header, get_default_post_headers, get_prisma_get_headers, get_prisma_auth_header, \
     get_auth_error_message, normalize_bc_url
 from checkov.common.util.type_forcers import convert_prisma_policy_filter_to_dict, convert_str_to_bool
-from checkov.secrets.coordinator import EnrichedSecret
 from checkov.version import version as checkov_version
 
 if TYPE_CHECKING:
@@ -470,27 +469,6 @@ class BcPlatformIntegration:
         to_upload = {"report": report, "file_path": file_path, "image_name": image_name, "branch": branch}
         _put_json_object(self.s3_client, to_upload, self.bucket, target_report_path)
 
-    def persist_enriched_secrets(self, enriched_secrets: list[EnrichedSecret]) -> str | None:
-        if not enriched_secrets or not self.repo_path or not self.bucket:
-            logging.debug(f'One of enriched secrets, repo path, or bucket are empty, aborting. values:'
-                          f'enriched_secrets={"Valid" if enriched_secrets else "Empty"},'
-                          f' repo_path={self.repo_path}, bucket={self.bucket}')
-            return None
-
-        if not bc_integration.bc_api_key or not os.getenv("CKV_VALIDATE_SECRETS"):
-            logging.debug('Skipping persistence of enriched secrets object as secrets verification is off,'
-                          ' enabled it via env var CKV_VALIDATE_SECRETS and provide an api key')
-            return None
-
-        if not self.s3_client:
-            logging.error("S3 upload was not correctly initialized")
-            return None
-
-        base_path = re.sub(REPO_PATH_PATTERN, r'original_secrets/\1', self.repo_path)
-        s3_path = f'{base_path}/{uuid.uuid4()}.json'
-        try:
-            _put_json_object(self.s3_client, enriched_secrets, self.bucket, s3_path, log_stack_trace_on_error=False)
-        except ClientError:
             logging.warning("Got access denied, retrying as s3 role changes should be propagated")
             sleep(4)
             try:

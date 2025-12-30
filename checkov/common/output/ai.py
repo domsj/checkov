@@ -20,9 +20,6 @@ OPENAI_MODEL = os.getenv("CKV_OPENAI_MODEL", "gpt-3.5-turbo")
 
 RUNNER_DENY_LIST = {
     CheckType.POLICY_3D,
-    CheckType.SCA_IMAGE,
-    CheckType.SCA_PACKAGE,
-    CheckType.SECRETS,
 }
 
 

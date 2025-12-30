@@ -28,7 +28,6 @@ from checkov.github_actions.checks.registry import registry as github_actions_jo
 from checkov.gitlab.registry import registry as gitlab_configuration_registry
 from checkov.gitlab_ci.checks.registry import registry as gitlab_ci_jobs_registry
 from checkov.kubernetes.checks.resource.registry import registry as k8_registry
-from checkov.secrets.runner import CHECK_ID_TO_SECRET_TYPE
 from checkov.serverless.registry import sls_registry
 from checkov.terraform.checks.data.registry import data_registry
 from checkov.terraform.checks.module.registry import module_registry
@@ -179,16 +178,6 @@ def get_checks(frameworks: Optional[List[str]] = None, use_bc_ids: bool = False,
         graph_registry.load_checks()
         add_from_repository(graph_registry, "resource", "Ansible")
         add_from_repository(ansible_registry, "resource", "Ansible")
-    if any(x in framework_list for x in ("all", "secrets")):
-        for check_id, check_type in CHECK_ID_TO_SECRET_TYPE.items():
-            if check_id in SKIP_CHECK_IDS:
-                continue
-
-            if not filtered_policy_ids or check_id in filtered_policy_ids:
-                if use_bc_ids:
-                    check_id = metadata_integration.get_bc_id(check_id)
-                check_link = get_check_link(inspect.getfile(metadata_integration.__class__))
-                printable_checks_list.append((check_id, check_type, "secrets", check_type, "secrets", check_link))
     return sorted(printable_checks_list, key=get_compare_key)  # type:ignore[arg-type]
 
 

@@ -11,7 +11,8 @@ from checkov.common.models.enums import CheckResult
 from checkov.common.output.common import format_string_to_licenses, is_raw_formatted, validate_lines
 from checkov.common.output.record import Record, SCA_PACKAGE_SCAN_CHECK_NAME
 from checkov.common.output.report import Report, CheckType
-from checkov.common.sca.commons import get_fix_version, UNFIXABLE_VERSION
+# SCA removed - UNFIXABLE_VERSION and get_fix_version no longer needed
+UNFIXABLE_VERSION = "N/A"
 
 if TYPE_CHECKING:
     from checkov.common.output.extra_resource import ExtraResource
@@ -58,13 +59,7 @@ class CSVSBOM:
         self.iac_resource_cache: set[str] = set()  # used to check, if a resource was already added
 
     def add_report(self, report: Report, git_org: str, git_repository: str) -> None:
-        if report.check_type in (CheckType.SCA_PACKAGE, CheckType.SCA_IMAGE):
-            for record in itertools.chain(report.failed_checks, report.passed_checks, report.skipped_checks):
-                if record.check_name == SCA_PACKAGE_SCAN_CHECK_NAME:
-                    self.add_sca_package_resources(resource=record, git_org=git_org, git_repository=git_repository, check_type=report.check_type)
-            for resource in sorted(report.extra_resources):
-                self.add_sca_package_resources(resource=resource, git_org=git_org, git_repository=git_repository, check_type=report.check_type)
-        else:
+        # SCA removed - only IaC resources are processed now
             for record in itertools.chain(report.failed_checks, report.passed_checks, report.skipped_checks):
                 self.add_iac_resources(resource=record, git_org=git_org, git_repository=git_repository)
             for resource in sorted(report.extra_resources):
@@ -80,10 +75,8 @@ class CSVSBOM:
         if isinstance(resource, Record) and resource.severity is not None:
             # ExtraResource don't have a CVE/Severity
             severity = resource.severity.name
-        csv_table = {
-            CheckType.SCA_PACKAGE: self.package_rows,
-            CheckType.SCA_IMAGE: self.container_rows
-        }
+        # SCA removed - this method is no longer used
+        csv_table = {}
 
         lines = resource.file_line_range
         lines = validate_lines(lines)
@@ -108,10 +101,8 @@ class CSVSBOM:
         )
 
     def get_fix_version_overview(self, vulnerability_details: dict[str, Any]) -> str:
-        is_private_fix = vulnerability_details.get("is_private_fix")
-        public_fix_version_suffix = " (Public)" if is_private_fix is False else ""
-        fix_version: str = get_fix_version(vulnerability_details)
-        return fix_version + public_fix_version_suffix if fix_version and fix_version != UNFIXABLE_VERSION else fix_version
+        # SCA removed - this method is no longer used
+        return ""
 
     def add_iac_resources(self, resource: Record | ExtraResource, git_org: str, git_repository: str) -> None:
         resource_id = f"{git_org}/{git_repository}/{resource.file_path}/{resource.resource}"
@@ -213,11 +204,11 @@ class CSVSBOM:
         # header
         csv_output = ','.join(HEADER_OSS_PACKAGES) + '\n'
         csv_table = {
-            CheckType.SCA_PACKAGE: self.package_rows,
-            CheckType.SCA_IMAGE: self.container_rows
         }
+        # SCA removed - this method is no longer used
+        csv_table = {}
 
-        for row in csv_table[check_type]:
+        for row in csv_table.get(check_type, []):
             for header in HEADER_OSS_PACKAGES:
                 field = row[header] if row[header] else ''
                 if header == 'Package':

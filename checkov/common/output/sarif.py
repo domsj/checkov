@@ -72,19 +72,6 @@ class Sarif:
         rules: "list[dict[str, Any]]" = []
 
         for report in self.reports:
-            if report.check_type in SCA_CHECKTYPES:
-                for record in itertools.chain(report.failed_checks, report.skipped_checks):
-                    rule = None
-                    if record.check_id.startswith("BC_LIC"):
-                        rule = self._create_license_rule(check_type=report.check_type, record=record)
-                    elif record.check_id.startswith(("BC_VUL", "CKV_CVE")):
-                        rule = self._create_cve_rule(check_type=report.check_type, record=record)
-
-                    if rule and rule["id"] not in self.rule_index_map:
-                        self.rule_index_map[rule["id"]] = rule_idx
-                        rules.append(rule)
-                        rule_idx += 1
-            else:
                 for record in itertools.chain(report.failed_checks, report.skipped_checks):
                     if record.check_id not in self.rule_index_map:
                         rule = self._create_iac_rule(check_type=report.check_type, record=record)
@@ -122,69 +109,6 @@ class Sarif:
 
         return rule
 
-    def _create_cve_rule(self, check_type: str, record: Record) -> dict[str, Any] | None:
-        details = record.vulnerability_details
-        if not details:
-            # this shouldn't happen
-            return None
-
-        rule = {
-            "id": self._create_rule_id(check_type=check_type, record=record),
-            "name": record.short_description or record.check_name,
-            "shortDescription": {
-                "text": record.short_description or record.check_name,
-            },
-            "fullDescription": {
-                "text": record.description or record.check_name,
-            },
-            "help": {
-                "text": f"{record.check_name}\nResource: {record.resource}\nStatus: {details.get('status')}",
-            },
-            "defaultConfiguration": {"level": "error"},
-        }
-
-        # Add properties dictionary with security-severity
-        cvss = details.get("cvss")
-        if cvss:
-            # use CVSS, if exists
-            rule["properties"] = {
-                "security-severity": str(cvss),
-            }
-        elif record.severity:
-            # otherwise severity, if exists
-            rule["properties"] = {
-                "security-severity": SEVERITY_TO_SCORE.get(record.severity.name.lower(), "0.0"),
-            }
-
-        help_uri = details.get("link")
-        if valid_url(help_uri):
-            rule["helpUri"] = help_uri
-
-        return rule
-
-    def _create_license_rule(self, check_type: str, record: Record) -> dict[str, Any] | None:
-        details = record.vulnerability_details
-        if not details:
-            # this shouldn't happen
-            return None
-
-        rule = {
-            "id": self._create_rule_id(check_type=check_type, record=record),
-            "name": record.short_description or record.check_name,
-            "shortDescription": {
-                "text": record.short_description or record.check_name,
-            },
-            "fullDescription": {
-                "text": f"Package {details['package_name']}@{details['package_version']} has license {details['license']}",
-            },
-            "help": {
-                "text": f"{record.check_name}\nResource: {record.resource}",
-            },
-            "defaultConfiguration": {"level": "error"},
-        }
-
-        # Adding 'properties' dictionary only if 'record.severity' exists
-        if record.severity:
             rule["properties"] = {
                 "security-severity": SEVERITY_TO_SCORE.get(record.severity.name.lower(), "0.0"),
             }
@@ -257,20 +181,7 @@ class Sarif:
         return results
 
     def _create_rule_id(self, check_type: str, record: Record) -> str | None:
-        if check_type in SCA_CHECKTYPES:
-            details = record.vulnerability_details
-            if not details:
-                # this shouldn't happen
-                return None
-
-            if record.check_id.startswith("BC_LIC"):
-                return f"{details['license']}_{details['package_name']}@{details['package_version']}".replace(" ", "_")
-            elif record.check_id.startswith(("BC_VUL", "CKV_CVE")):
-                return f"{details['id']}_{details['package_name']}@{details['package_version']}".replace(" ", "_")
-        else:
-            return record.check_id
-
-        return None
+        return record.check_id
 
     def write_sarif_output(self) -> None:
         try:

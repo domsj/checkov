@@ -12,8 +12,9 @@ from pytest_mock import MockerFixture
 
 from checkov.common.output.common import ImageDetails
 from checkov.common.output.cyclonedx import CycloneDX
-from checkov.common.sca.commons import get_package_lines
-from checkov.common.sca.output import create_report_cve_record
+# SCA frameworks removed - imports no longer needed for disabled tests
+# from checkov.common.sca.commons import get_package_lines
+# from checkov.common.sca.output import create_report_cve_record
 from checkov.common.output.record import Record
 from checkov.terraform.runner import Runner
 
@@ -47,7 +48,8 @@ def test_valid_cyclonedx_bom():
 
     assert "http://cyclonedx.org/schema/bom/1.4" in output
 
-def test_valid_cyclonedx_image_bom():
+# SCA_IMAGE framework removed - test no longer applicable
+def _test_valid_cyclonedx_image_bom():
     # given
     repo_id = 'acme/repo'
     rootless_file_path = "Dockerfile (sha256:123456)"
@@ -139,7 +141,8 @@ def test_valid_cyclonedx_image_bom():
     assert "http://cyclonedx.org/schema/bom/1.4" in output
 
 
-def test_sca_packages_cyclonedx_bom():
+# SCA_PACKAGE framework removed - test no longer applicable
+def _test_sca_packages_cyclonedx_bom():
     # given
     rootless_file_path = "requirements.txt"
     file_abs_path = "/path/to/requirements.txt"
@@ -218,7 +221,8 @@ def test_create_schema_version_1_3(mocker: MockerFixture):
     assert "http://cyclonedx.org/schema/bom/1.3" in output
 
 
-def test_create_library_component_maven_package() -> None:
+# SCA_IMAGE framework removed - test no longer applicable
+def _test_create_library_component_maven_package() -> None:
     # given
     cyclone = CycloneDX([Report(CheckType.SCA_IMAGE)], repo_id="12345")
     package = {"name": 'org.bouncycastle_bcpkix-jdk15on',
@@ -244,7 +248,8 @@ def test_create_library_component_maven_package() -> None:
     assert component.purl.namespace == '12345/Dockerfile/org.bouncycastle'
 
 
-def test_create_library_component_maven_package_without_group_name() -> None:
+# SCA frameworks removed - test no longer applicable
+def _test_create_library_component_maven_package_without_group_name() -> None:
     # given
     cyclone = CycloneDX([Report(CheckType.SCA_IMAGE)], repo_id="12345")
     package = {"name": 'bcpkix-jdk15on',

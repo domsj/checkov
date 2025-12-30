@@ -66,7 +66,6 @@ setup(
     },
     install_requires=[
         "bc-python-hcl2==0.3.51",
-        "bc-detect-secrets==1.4.29",
         "bc-jsonpath-ng==1.5.9",
         "deep-merge",
         "tabulate",
@@ -93,8 +92,6 @@ setup(
         "typing-extensions>=4.1.0",
         "importlib-metadata>=0.12",
         "cachetools",
-        "cyclonedx-python-lib<4.0.0,>=2.4.0",
-        "packageurl-python",
         "click>=8.0.0",
         "aiohttp",
         "aiodns",
@@ -109,8 +106,6 @@ setup(
         "requests>=2.27.0",
         "yarl",
         "openai",
-        "spdx-tools<0.8.0",
-        "license-expression==30.1.0",
         "asteval==1.0.6"
     ],
     dependency_links=[],  # keep it empty, needed for pipenv-setup

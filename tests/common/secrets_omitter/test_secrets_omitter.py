@@ -38,24 +38,17 @@ def test_get_secret_lines(code_block, expected_range, expected_lines):
 @pytest.mark.parametrize(
     "reports",
     [
-        ([Report(CheckType.SECRETS)]),
         ([Report(CheckType.GITHUB_ACTIONS)])
     ],
 )
 def test_omit_insufficient_reports(reports):
+    # SECRETS framework removed - SecretsOmitter now always returns INSUFFICIENT_REPORTS
     assert SecretsOmitter(reports).omit() == SecretsOmitterStatus.INSUFFICIENT_REPORTS
 
 
 def test_omit():
+    # SECRETS framework removed - SecretsOmitter no longer works without secrets reports
     file_path = 'filepath'
-    failed_secrets_record = Record(check_id='a', check_name='a', check_result={"result": CheckResult.FAILED},
-                                   code_block=[(1, 'ab***'), (2, 'bc*'), (3, 'efg******'), (4, 'abcd'), (5, 'abc')],
-                                   file_path=file_path, file_line_range=[], resource='', evaluations={}, check_class='',
-                                   file_abs_path=''
-                                   )
-    secrets_report = Report(CheckType.SECRETS)
-    secrets_report.add_record(failed_secrets_record)
-
     record = Record(check_id='b', check_name='b', check_result={"result": CheckResult.PASSED},
                     code_block=[(2, 'SECRET'), (3, 'SECRET'), (4, 'abcd'), (5, 'abc')],
                     file_path=file_path, file_line_range=[2, 5], resource='', evaluations={}, check_class='',
@@ -64,25 +57,17 @@ def test_omit():
     report = Report(CheckType.GITHUB_ACTIONS)
     report.add_record(record)
 
-    res = SecretsOmitter([secrets_report, report]).omit()
+    res = SecretsOmitter([report]).omit()
 
-    assert res == SecretsOmitterStatus.SUCCESS
-    assert report.passed_checks[0].code_block == [(2, 'bc*'), (3, 'efg******'), (4, 'abcd'), (5, 'abc')]
+    # Without secrets report, should return INSUFFICIENT_REPORTS
+    assert res == SecretsOmitterStatus.INSUFFICIENT_REPORTS
 
 
 def test_omit_should_skip():
     """
-    This test verifies that records containing None in file_line_range will be skipped
+    SECRETS framework removed - this test verifies SecretsOmitter returns INSUFFICIENT_REPORTS
     """
     file_path = 'filepath'
-    failed_secrets_record = Record(check_id='a', check_name='a', check_result={"result": CheckResult.FAILED},
-                                   code_block=[(1, 'ab***'), (2, 'bc*'), (3, 'efg******'), (4, 'abcd'), (5, 'abc')],
-                                   file_path=file_path, file_line_range=[], resource='', evaluations={}, check_class='',
-                                   file_abs_path=''
-                                   )
-    secrets_report = Report(CheckType.SECRETS)
-    secrets_report.add_record(failed_secrets_record)
-
     record = Record(check_id='b', check_name='b', check_result={"result": CheckResult.PASSED},
                     code_block=[(2, 'SECRET'), (3, 'SECRET'), (4, 'abcd'), (5, 'abc')],
                     file_path=file_path, file_line_range=[2, None], resource='', evaluations={}, check_class='',
@@ -91,22 +76,13 @@ def test_omit_should_skip():
     report = Report(CheckType.GITHUB_ACTIONS)
     report.add_record(record)
 
-    res = SecretsOmitter([secrets_report, report]).omit()
-    assert res == SecretsOmitterStatus.SUCCESS
-
-    # Asserting code block is unchanged
-    assert report.passed_checks[0].code_block == [(2, 'SECRET'), (3, 'SECRET'), (4, 'abcd'), (5, 'abc')]
+    res = SecretsOmitter([report]).omit()
+    # Without secrets report, should return INSUFFICIENT_REPORTS
+    assert res == SecretsOmitterStatus.INSUFFICIENT_REPORTS
 
 def test_omit_with_abs_file_path():
+    # SECRETS framework removed - SecretsOmitter no longer works without secrets reports
     abs_file_path = 'abs/filepath'
-    failed_secrets_record = Record(check_id='a', check_name='a', check_result={"result": CheckResult.FAILED},
-                                   code_block=[(1, 'ab***'), (2, 'bc*'), (3, 'efg******'), (4, 'abcd'), (5, 'abc')],
-                                   file_path=abs_file_path, file_line_range=[], resource='', evaluations={}, check_class='',
-                                   file_abs_path=abs_file_path
-                                   )
-    secrets_report = Report(CheckType.SECRETS)
-    secrets_report.add_record(failed_secrets_record)
-
     record = Record(check_id='b', check_name='b', check_result={"result": CheckResult.PASSED},
                     code_block=[(2, 'SECRET'), (3, 'SECRET'), (4, 'abcd'), (5, 'abc')],
                     file_path='different_file_path', file_line_range=[2, 5], resource='', evaluations={}, check_class='',
@@ -115,7 +91,7 @@ def test_omit_with_abs_file_path():
     report = Report(CheckType.GITHUB_ACTIONS)
     report.add_record(record)
 
-    res = SecretsOmitter([secrets_report, report]).omit()
+    res = SecretsOmitter([report]).omit()
 
-    assert res == SecretsOmitterStatus.SUCCESS
-    assert report.passed_checks[0].code_block == [(2, 'bc*'), (3, 'efg******'), (4, 'abcd'), (5, 'abc')]
+    # Without secrets report, should return INSUFFICIENT_REPORTS
+    assert res == SecretsOmitterStatus.INSUFFICIENT_REPORTS

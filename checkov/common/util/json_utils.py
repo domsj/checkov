@@ -9,7 +9,6 @@ from bc_jsonpath_ng import parse, JSONPath
 from checkov.common.bridgecrew.severities import Severity
 from checkov.common.output.common import ImageDetails
 from checkov.common.packaging.version import LegacyVersion, Version
-from detect_secrets.core.potential_secret import PotentialSecret
 
 from checkov.common.util.data_structures_utils import pickle_deepcopy
 
@@ -39,8 +38,6 @@ class CustomJSONEncoder(json.JSONEncoder):
             return str(o)
         elif isinstance(o, TFModule):
             return dict(o)
-        elif isinstance(o, PotentialSecret):
-            return o.json()
         else:
             return json.JSONEncoder.default(self, o)
 

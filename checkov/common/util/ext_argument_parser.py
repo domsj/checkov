@@ -222,7 +222,7 @@ class ExtArgumentParser(configargparse.ArgumentParser):
             help="Filter scan to skip specific infrastructure as code frameworks."
                  "This will be included automatically for some frameworks if system dependencies "
                  "are missing. Add multiple frameworks using spaces. For example, "
-                 "--skip-framework terraform sca_package.",
+                 "--skip-framework terraform helm.",
             choices=checkov_runners,
             default=None,
             nargs="+",
@@ -316,15 +316,6 @@ class ExtArgumentParser(configargparse.ArgumentParser):
             action='store_true',
             help="Do not upload scan results to the platform to view in the console. Results are only available locally. "
                  "If you use the --support flag, logs will still get uploaded.",
-        )
-        self.add(
-            "--docker-image",
-            "--image",
-            help="Scan docker images by name or ID. Only works with --bc-api-key flag",
-        )
-        self.add(
-            "--dockerfile-path",
-            help="Path to the Dockerfile of the scanned docker image",
         )
         self.add(
             "--repo-id",
@@ -459,39 +450,11 @@ class ExtArgumentParser(configargparse.ArgumentParser):
             default=False,
         )
         self.add(
-            "--skip-cve-package",
-            help="filter scan to run on all packages but a specific package identifier (denylist), You can "
-                 "specify this argument multiple times to skip multiple packages",
-            action="append",
-            default=None,
-        )
-        self.add(
             "--policy-metadata-filter",
             help="comma separated key:value string to filter policies based on Prisma Cloud policy metadata. "
                  "See https://prisma.pan.dev/api/cloud/cspm/policy#operation/get-policy-filters-and-options for "
                  "information on allowed filters. Format: policy.label=test,cloud.type=aws ",
             default=None,
-        )
-        self.add(
-            "--secrets-scan-file-type",
-            default=[],
-            env_var="CKV_SECRETS_SCAN_FILE_TYPE",
-            action="append",
-            help="not in use",
-        )
-        self.add(
-            "--enable-secret-scan-all-files",
-            default=False,
-            env_var="CKV_SECRETS_SCAN_ENABLE_ALL",
-            action="store_true",
-            help="enable secret scan for all files",
-        )
-        self.add(
-            "--block-list-secret-scan",
-            default=[],
-            env_var="CKV_SECRETS_SCAN_BLOCK_LIST",
-            action="append",
-            help="List of files to filter out from the secret scanner",
         )
         self.add(
             "--summary-position",
@@ -527,18 +490,6 @@ class ExtArgumentParser(configargparse.ArgumentParser):
                  "masking the desired attribute for resource (or for all resources, if no resource given)."
                  "Notice: one entry can contain several variables, seperated with a comma. For example:"
                  "<resource_type>:<variable1>,<variable2> OR <variable1>,<variable2>"
-        )
-        self.add(
-            "--scan-secrets-history",
-            action="store_true",
-            default=False,
-            help="will scan the history of commits for secrets"
-        )
-        self.add(
-            "--secrets-history-timeout",
-            action="store",
-            default='12h',
-            help="maximum time to stop the scan "
         )
         self.add(
             "--openai-api-key",

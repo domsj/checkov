@@ -19,16 +19,16 @@ class SecretsOmitterStatus(Enum):
 
 class SecretsOmitter:
     def __init__(self, reports: list[Report]):
-        self.reports: list[Report] = [report for report in reports if report.check_type != CheckType.SECRETS]
-        self.secrets_report: dict[str, Any] | None = self._get_secrets_report(reports)
+        # SECRETS framework removed - no longer filtering secrets reports
+        self.reports: list[Report] = reports
+        self.secrets_report: dict[str, Any] | None = None
 
     @staticmethod
     def _get_secrets_report(reports: list[Report]) -> dict[str, Any] | None:
         """
-        Setting the secrets report from checkov runner or bucket
+        SECRETS framework removed - always returns None
         """
-        secrets_report_list = [report for report in reports if report.check_type == CheckType.SECRETS]
-        return secrets_report_list[0].get_dict(full_report=True) if len(secrets_report_list) == 1 else None
+        return None
 
     def _secret_check(self) -> Iterator[dict[str, Any]]:
         if not self.secrets_report:

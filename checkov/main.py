@@ -48,7 +48,6 @@ from checkov.common.runners.runner_registry import RunnerRegistry
 from checkov.common.util import prompt
 from checkov.common.util.banner import banner as checkov_banner, tool as checkov_tool
 from checkov.common.util.config_utils import get_default_config_paths
-from checkov.common.util.consts import CHECKOV_RUN_SCA_PACKAGE_SCAN_V2
 from checkov.common.util.docs_generator import print_checks
 from checkov.common.util.ext_argument_parser import ExtArgumentParser
 from checkov.common.util.runner_dependency_handler import RunnerDependencyHandler
@@ -62,12 +61,7 @@ from checkov.gitlab_ci.runner import Runner as gitlab_ci_runner
 from checkov.helm.runner import Runner as helm_runner
 from checkov.json_doc.runner import Runner as json_runner
 from checkov.kubernetes.runner import Runner as k8_runner
-from checkov.kustomize.runner import Runner as kustomize_runner
 from checkov.runner_filter import RunnerFilter
-from checkov.sca_image.runner import Runner as sca_image_runner
-from checkov.sca_package.runner import Runner as sca_package_runner
-from checkov.sca_package_2.runner import Runner as sca_package_runner_2
-from checkov.secrets.runner import Runner as secrets_runner
 from checkov.serverless.runner import Runner as sls_runner
 from checkov.terraform.plan_runner import Runner as tf_plan_runner
 from checkov.terraform.runner import Runner as tf_graph_runner
@@ -93,7 +87,6 @@ outer_registry = None
 logger = logging.getLogger(__name__)
 add_resource_code_filter_to_logger(logger)
 
-# sca package runner added during the run method
 DEFAULT_RUNNERS = [
     tf_graph_runner(),
     cfn_runner(),
@@ -103,7 +96,6 @@ DEFAULT_RUNNERS = [
     tf_plan_runner(),
     helm_runner(),
     dockerfile_runner(),
-    secrets_runner(),
     json_runner(),
     yaml_runner(),
     github_configuration_runner(),
@@ -111,11 +103,9 @@ DEFAULT_RUNNERS = [
     gitlab_ci_runner(),
     bitbucket_configuration_runner(),
     bitbucket_pipelines_runner(),
-    kustomize_runner(),
     github_actions_runner(),
     bicep_runner(),
     openapi_runner(),
-    sca_image_runner(),
     argo_workflows_runner(),
     circleci_pipelines_runner(),
     azure_pipelines_runner(),
@@ -288,16 +278,11 @@ class Checkov:
                 excluded_paths=excluded_paths,
                 all_external=self.config.run_all_external_checks,
                 var_files=self.config.var_file,
-                skip_cve_package=self.config.skip_cve_package,
                 show_progress_bar=not self.config.quiet,
                 use_enforcement_rules=self.config.use_enforcement_rules,
-                enable_secret_scan_all_files=bool(convert_str_to_bool(self.config.enable_secret_scan_all_files)),
-                block_list_secret_scan=self.config.block_list_secret_scan,
                 deep_analysis=self.config.deep_analysis,
                 repo_root_for_plan_enrichment=self.config.repo_root_for_plan_enrichment,
-                resource_attr_to_omit=self.config.mask,
-                enable_git_history_secret_scan=self.config.scan_secrets_history,
-                git_history_timeout=self.config.secrets_history_timeout
+                resource_attr_to_omit=self.config.mask
             )
 
             source_env_val = os.getenv('BC_SOURCE', 'cli')
@@ -313,10 +298,6 @@ class Checkov:
                 logger.debug('Using --list; setting source to DISABLED')
                 source = SourceTypes[BCSourceType.DISABLED]
 
-            if CHECKOV_RUN_SCA_PACKAGE_SCAN_V2:
-                self.runners.append(sca_package_runner_2())
-            else:
-                self.runners.append(sca_package_runner())
 
             if outer_registry:
                 runner_registry = outer_registry
@@ -424,9 +405,6 @@ class Checkov:
             runner_filter.bc_cloned_checks = bc_cloned_checks
             custom_policies_integration.policy_level_suppression = list(policy_level_suppression.keys())
 
-            if any(framework in runner_filter.framework for framework in ("all", CheckType.SCA_IMAGE)):
-                # only run image referencer, when sca_image framework is enabled
-                runner_filter.run_image_referencer = licensing_integration.should_run_image_referencer()
 
             runner_filter.filtered_policy_ids = policy_metadata_integration.filtered_policy_ids
             logger.debug(f"Filtered list of policies: {runner_filter.filtered_policy_ids}")
@@ -517,55 +495,6 @@ class Checkov:
                         logger.warning(f"Unable to report contributor metrics due to: {e}")
 
                 exit_code = 1 if 1 in exit_codes else 0
-                return exit_code
-            elif self.config.docker_image:
-                if self.config.bc_api_key is None:
-                    self.parser.error("--bc-api-key argument is required when using --docker-image")
-                    return None
-                if self.config.dockerfile_path is None:
-                    self.parser.error("--dockerfile-path argument is required when using --docker-image")
-                    return None
-                if self.config.branch is None:
-                    self.parser.error("--branch argument is required when using --docker-image")
-                    return None
-                files = [os.path.abspath(self.config.dockerfile_path)]
-                runner = sca_image_runner()
-                result = runner.run(
-                    root_folder='',
-                    image_id=self.config.docker_image,
-                    dockerfile_path=self.config.dockerfile_path,
-                    runner_filter=runner_filter,
-                )
-                self.scan_reports = result if isinstance(result, list) else [result]
-                if runner_registry.is_error_in_reports(self.scan_reports):
-                    self.exit_run()
-                if len(self.scan_reports) > 1:
-                    # this shouldn't happen, but if it happens, then it is intended or something is broke
-                    logger.error(f"SCA image runner returned {len(self.scan_reports)} reports; expected 1")
-
-                integration_feature_registry.run_post_runner(self.scan_reports[0])
-
-                if not self.config.skip_results_upload:
-                    bc_integration.persist_repository(os.path.dirname(self.config.dockerfile_path), files=files)
-                    bc_integration.persist_scan_results(self.scan_reports)
-                    bc_integration.persist_image_scan_results(runner.raw_report, self.config.dockerfile_path,
-                                                              self.config.docker_image,
-                                                              self.config.branch)
-
-                    bc_integration.persist_run_metadata(self.run_metadata)
-                    if bc_integration.enable_persist_graphs:
-                        bc_integration.persist_graphs(self.graphs)
-                    self.url = self.commit_repository()
-
-                should_run_contributor_metrics = bc_integration.bc_api_key and self.config.repo_id and self.config.prisma_api_url
-                logger.debug(f"Should run contributor metrics report: {should_run_contributor_metrics}")
-                if should_run_contributor_metrics:
-                    try:  # collect contributor info and upload
-                        report_contributor_metrics(self.config.repo_id, source.name, bc_integration)
-                    except Exception as e:
-                        logger.warning(f"Unable to report contributor metrics due to: {e}")
-
-                exit_code = self.print_results(runner_registry=runner_registry, url=self.url)
                 return exit_code
             elif self.config.file:
                 runner_registry.filter_runners_for_files(self.config.file)

@@ -8,7 +8,6 @@ from typing import Any, Set, Optional, Union, List, TYPE_CHECKING, Dict, Default
 import re
 
 from checkov.common.bridgecrew.check_type import CheckType
-from checkov.secrets.consts import ValidationStatus
 
 from checkov.common.bridgecrew.code_categories import CodeCategoryMapping, CodeCategoryConfiguration, CodeCategoryType
 from checkov.common.bridgecrew.severities import Severity, Severities
@@ -41,26 +40,20 @@ class RunnerFilter(object):
             excluded_paths: Optional[List[str]] = None,
             all_external: bool = False,
             var_files: Optional[List[str]] = None,
-            skip_cve_package: Optional[List[str]] = None,
             use_enforcement_rules: bool = False,
             filtered_policy_ids: Optional[List[str]] = None,
             show_progress_bar: Optional[bool] = True,
             run_image_referencer: bool = False,
-            enable_secret_scan_all_files: bool = False,
-            block_list_secret_scan: Optional[List[str]] = None,
             deep_analysis: bool = False,
             repo_root_for_plan_enrichment: Optional[List[str]] = None,
             resource_attr_to_omit: Optional[Dict[str, Set[str]]] = None,
-            enable_git_history_secret_scan: bool = False,
-            git_history_timeout: str = '12h',
             git_history_last_commit_scanned: Optional[str] = None  # currently not exposed by a CLI flag
     ) -> None:
 
         checks = convert_csv_string_arg_to_list(checks)
         skip_checks = convert_csv_string_arg_to_list(skip_checks)
 
-        self.skip_invalid_secrets = skip_checks and any(skip_check.capitalize() == ValidationStatus.INVALID.value
-                                                        for skip_check in skip_checks)
+        self.skip_invalid_secrets = False
 
         self.use_enforcement_rules = use_enforcement_rules
         self.enforcement_rule_configs: Dict[str, Severity | Dict[CodeCategoryType, Severity]] = {}
@@ -121,23 +114,14 @@ class RunnerFilter(object):
         self.excluded_paths = excluded_paths or []
         self.all_external = all_external
         self.var_files = var_files
-        self.skip_cve_package = skip_cve_package
         self.filtered_policy_ids = filtered_policy_ids or []
         self.run_image_referencer = run_image_referencer
-        self.enable_secret_scan_all_files = enable_secret_scan_all_files
-        self.block_list_secret_scan = block_list_secret_scan
         self.suppressed_policies: List[str] = []
         self.deep_analysis = deep_analysis
         self.repo_root_for_plan_enrichment = repo_root_for_plan_enrichment
         self.resource_attr_to_omit: DefaultDict[str, Set[str]] = RunnerFilter._load_resource_attr_to_omit(
             resource_attr_to_omit
         )
-        self.enable_git_history_secret_scan: bool = enable_git_history_secret_scan
-        if self.enable_git_history_secret_scan:
-            self.git_history_timeout = convert_to_seconds(git_history_timeout)
-            self.framework = [CheckType.SECRETS]
-            logging.debug("Scan secrets history was enabled ignoring other frameworks")
-            self.git_history_last_commit_scanned = git_history_last_commit_scanned
 
     @staticmethod
     def _load_resource_attr_to_omit(resource_attr_to_omit_input: Optional[Dict[str, Set[str]]]) -> DefaultDict[str, Set[str]]:
@@ -340,7 +324,6 @@ class RunnerFilter(object):
         if all_external is None:
             all_external = False
         var_files = obj.get('var_files')
-        skip_cve_package = obj.get('skip_cve_package')
         use_enforcement_rules = obj.get('use_enforcement_rules')
         if use_enforcement_rules is None:
             use_enforcement_rules = False
@@ -351,13 +334,11 @@ class RunnerFilter(object):
         run_image_referencer = obj.get('run_image_referencer')
         if run_image_referencer is None:
             run_image_referencer = False
-        enable_secret_scan_all_files = bool(obj.get('enable_secret_scan_all_files'))
-        block_list_secret_scan = obj.get('block_list_secret_scan')
         runner_filter = RunnerFilter(framework, checks, skip_checks, include_all_checkov_policies,
                                      download_external_modules, external_modules_download_path, evaluate_variables,
                                      runners, skip_framework, excluded_paths, all_external, var_files,
-                                     skip_cve_package, use_enforcement_rules, filtered_policy_ids, show_progress_bar,
-                                     run_image_referencer, enable_secret_scan_all_files, block_list_secret_scan)
+                                     use_enforcement_rules, filtered_policy_ids, show_progress_bar,
+                                     run_image_referencer)
         return runner_filter
 
     def set_suppressed_policies(self, policy_level_suppressions: List[str]) -> None:

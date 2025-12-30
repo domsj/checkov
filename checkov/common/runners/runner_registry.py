@@ -41,8 +41,6 @@ from checkov.common.util.banner import tool as tool_name
 from checkov.common.util.json_utils import CustomJSONEncoder
 from checkov.common.util.secrets_omitter import SecretsOmitter
 from checkov.common.util.type_forcers import convert_csv_string_arg_to_list, force_list
-from checkov.sca_image.runner import Runner as image_runner
-from checkov.secrets.consts import SECRET_VALIDATION_STATUSES
 from checkov.terraform.context_parsers.registry import parser_registry
 from checkov.terraform.parser import Parser
 from checkov.terraform.runner import Runner as tf_runner
@@ -95,9 +93,6 @@ class RunnerRegistry:
         self.licensing_integration = licensing_integration  # can be maniuplated by unit tests
         self.secrets_omitter_class = secrets_omitter_class
         self.check_type_to_graph: dict[str, Graph | DiGraph] = {}
-        for runner in runners:
-            if isinstance(runner, image_runner):
-                runner.image_referencers = self.image_referencing_runners
 
     def run(
             self,
@@ -257,8 +252,6 @@ class RunnerRegistry:
                 val = val.upper()
                 if not soft_fail_threshold or Severities[val].level > soft_fail_threshold.level:
                     soft_fail_threshold = Severities[val]
-            elif val.capitalize() in SECRET_VALIDATION_STATUSES:
-                soft_fail_on_checks.append(val.capitalize())
             else:
                 soft_fail_on_checks.append(val)
 
@@ -273,8 +266,6 @@ class RunnerRegistry:
                 val = val.upper()
                 if not hard_fail_threshold or Severities[val].level < hard_fail_threshold.level:
                     hard_fail_threshold = Severities[val]
-            elif val.capitalize() in SECRET_VALIDATION_STATUSES:
-                hard_fail_on_checks.append(val.capitalize())
             else:
                 hard_fail_on_checks.append(val)
 

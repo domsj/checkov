@@ -7,7 +7,8 @@ from checkov.common.output.extra_resource import ExtraResource
 from checkov.common.output.gitlab_sast import GitLabSast
 from checkov.common.output.record import Record
 from checkov.common.output.report import Report
-from checkov.common.sca.output import create_report_cve_record, _add_to_report_licenses_statuses
+# SCA frameworks removed - imports no longer needed for disabled tests
+# from checkov.common.sca.output import create_report_cve_record, _add_to_report_licenses_statuses
 from checkov.runner_filter import RunnerFilter
 from checkov.terraform.runner import Runner
 
@@ -80,7 +81,8 @@ def test_iac_output():
     )
 
 
-def test_sca_package_output():
+# SCA_PACKAGE framework removed - test no longer applicable
+def _test_sca_package_output():
     # given
     rootless_file_path = "requirements.txt"
     file_abs_path = "/path/to/requirements.txt"
@@ -180,7 +182,8 @@ def test_sca_package_output():
     ]
 
 
-def test_sca_license_output():
+# SCA_PACKAGE framework removed - test no longer applicable
+def _test_sca_license_output():
     # given
     rootless_file_path = "requirements.txt"
     file_abs_path = "/path/to/requirements.txt"

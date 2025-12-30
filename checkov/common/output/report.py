@@ -18,14 +18,11 @@ from checkov.common.bridgecrew.check_type import CheckType
 from checkov.common.models.enums import CheckResult, ErrorStatus
 from checkov.common.output.ai import OpenAi
 from checkov.common.typing import _ExitCodeThresholds, _ScaExitCodeThresholds
-from checkov.common.output.record import Record, SCA_PACKAGE_SCAN_CHECK_NAME
-from checkov.common.util.consts import PARSE_ERROR_FAIL_FLAG, CHECKOV_RUN_SCA_PACKAGE_SCAN_V2
+from checkov.common.output.record import Record
+from checkov.common.util.consts import PARSE_ERROR_FAIL_FLAG
 from checkov.common.util.json_utils import CustomJSONEncoder
 from checkov.runner_filter import RunnerFilter
 
-from checkov.sca_package_2.output import create_cli_output as create_sca_package_cli_output_v2
-
-from checkov.sca_package.output import create_cli_output as create_sca_package_cli_output_v1
 
 from checkov.policies_3d.output import create_cli_output as create_3d_policy_cli_output
 
@@ -283,20 +280,10 @@ class Report:
                 summary["parsing_errors"],
             )
         else:
-            if self.check_type == CheckType.SCA_PACKAGE:
-                message = f"\nFailed checks: {summary['failed']}, Skipped checks: {summary['skipped']}\n\n"
-            else:
-                message = f"\nPassed checks: {summary['passed']}, Failed checks: {summary['failed']}, Skipped checks: {summary['skipped']}\n\n"
+            message = f"\nPassed checks: {summary['passed']}, Failed checks: {summary['failed']}, Skipped checks: {summary['skipped']}\n\n"
         if summary_position == 'top':
             output_data += colored(message, "cyan")
-        # output for vulnerabilities is different
-        if self.check_type in (CheckType.SCA_PACKAGE, CheckType.SCA_IMAGE):
-            if self.failed_checks or self.skipped_checks:
-                create_cli_output = create_sca_package_cli_output_v2 if CHECKOV_RUN_SCA_PACKAGE_SCAN_V2 else create_sca_package_cli_output_v1
-                output_data += create_cli_output(self.check_type == CheckType.SCA_PACKAGE, self.failed_checks,
-                                                 self.skipped_checks)
-
-        elif self.check_type == CheckType.POLICY_3D:
+        if self.check_type == CheckType.POLICY_3D:
             if self.failed_checks or self.skipped_checks:
                 output_data += create_3d_policy_cli_output(self.failed_checks, self.skipped_checks)  # type:ignore[arg-type]
 
@@ -373,21 +360,9 @@ class Report:
             if record.severity:
                 severity = record.severity.name
 
-            if self.check_type == CheckType.SCA_PACKAGE:
-                if record.check_name != SCA_PACKAGE_SCAN_CHECK_NAME:
-                    continue
-                if not record.vulnerability_details:
-                    # this shouldn't normally happen
-                    logging.warning(f"Vulnerability check without details {record.file_path}")
-                    continue
-
-                check_id = record.vulnerability_details["id"]
-                test_name_detail = f"{record.vulnerability_details['package_name']}: {record.vulnerability_details['package_version']}"
-                class_name = f"{record.file_path}.{record.vulnerability_details['package_name']}"
-            else:
-                check_id = record.bc_check_id if use_bc_ids else record.check_id
-                test_name_detail = record.check_name
-                class_name = f"{record.file_path}.{record.resource}"
+            check_id = record.bc_check_id if use_bc_ids else record.check_id
+            test_name_detail = record.check_name
+            class_name = f"{record.file_path}.{record.resource}"
 
             test_name = f"[{severity}][{check_id}] {test_name_detail}"
 
@@ -398,10 +373,7 @@ class Report:
                     output=self._create_test_case_failure_output(record)
                 )
             if record.check_result["result"] == CheckResult.SKIPPED:
-                if self.check_type == CheckType.SCA_PACKAGE:
-                    test_case.add_skipped_info(f"{check_id} skipped for {test_name_detail}")
-                else:
-                    test_case.add_skipped_info(record.check_result.get("suppress_comment", ""))
+                test_case.add_skipped_info(record.check_result.get("suppress_comment", ""))
 
             test_cases.append(test_case)
 
@@ -453,34 +425,6 @@ class Report:
 
         failure_output = []
 
-        if self.check_type == CheckType.SCA_PACKAGE:
-            if record.vulnerability_details:
-                lowest_fixed_version = record.vulnerability_details.get('lowest_fixed_version')
-                if lowest_fixed_version is not None:
-                    fix = lowest_fixed_version
-                else:
-                    fixlist = record.vulnerability_details.get('fixed_versions')
-                    if fixlist is not None:
-                        fix = fixlist
-
-                failure_output.extend(
-                    [
-                        "",
-                        f"Description: {record.description}",
-                        f"Link: {record.vulnerability_details.get('link')}",
-                        f"Published Date: {record.vulnerability_details.get('published_date')}",
-                        f"Base Score: {record.vulnerability_details.get('cvss')}",
-                        f"Vector: {record.vulnerability_details.get('vector')}",
-                        f"Risk Factors: {record.vulnerability_details.get('risk_factors')}",
-                        "Fix Details:",
-                        f"  Status: {record.vulnerability_details.get('status')}",
-                        f"  Fixed Version: {fix}",
-                    ]
-                )
-            else:
-                # this shouldn't normally happen
-                logging.warning(f"Vulnerability check without details {record.file_path}")
-
         failure_output.extend(
             [
                 "",
@@ -494,8 +438,7 @@ class Report:
                 file_line += f": {record.file_line_range[0]}-{record.file_line_range[1]}"
             failure_output.append(file_line)
 
-        if self.check_type != CheckType.SCA_PACKAGE:
-            failure_output.append(f"Guideline: {record.guideline}")
+        failure_output.append(f"Guideline: {record.guideline}")
 
         if record.code_block:
             failure_output.append("")
